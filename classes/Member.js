@@ -19,6 +19,10 @@ class Member {
     getUuid() {
         return this.uuid;
     }
+
+    setName(name) {
+        this.name = name;
+    }
 }
 
 module.exports.Member = Member;

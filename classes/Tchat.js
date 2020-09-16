@@ -26,22 +26,35 @@ class Tchat {
     listenMember(client) {
         client.on('memberJoin', _member => {
             let newMember = _member;
-            if (this.isMemberBySocketByPseudo(newMember)) {
+            if (this.isMemberByPseudo(newMember)) { // Si le pseudo est déja utilisé
                 newMember += new Date().getTime().toString();
+                this.addNewMember(newMember, client);
             }
-            let memberInstance = new Member(newMember, client);
-            this.members.push(memberInstance);
-            this.sendAll('memberJoin', memberInstance, client);
-            this.sendMemberList(client);
+            else if (this.isMemberBySocket(client)) { // Si le client est déja dans la liste
+                console.log(client.id, "existe déja");
+                this.updateAlreadyExist(client, newMember);
+            } else { // sinon 
+                this.addNewMember(newMember, client);
+            }
         });
         client.on('receiveMsg', msg => this.listenMessage(client, msg));
         client.on('disconnect', _client => this.listenDisconnect(client))
     }
 
+
+    addNewMember(newMember, client) {
+        let memberInstance = new Member(newMember, client);
+        this.members.push(memberInstance);
+        this.sendAll('memberJoin', memberInstance, client);
+        this.sendMemberList(client);
+    }
     sendAll(eventName, data, client) {
         switch(eventName) {
             case 'memberDisconnect':
             case 'memberJoin':
+                client.broadcast.emit(eventName, {name: data.getName(), uuid: data.getUuid()});
+                break;
+            case 'memberUpdate':
                 client.broadcast.emit(eventName, {name: data.getName(), uuid: data.getUuid()});
                 break;
             case 'newMessage':
@@ -61,6 +74,16 @@ class Tchat {
             };
         }));
     }
+
+    updateAlreadyExist(client, member) {
+        let memberIndex = this.members.findIndex(_elt => _elt.getSocket().id === client.id);
+        this.members[memberIndex].setName(member);
+        console.log(this.members[memberIndex].getName());
+        this.sendAll("memberUpdate", this.members[memberIndex], client);
+        client.emit('myUpdate', {name: this.members[memberIndex].getName(), uuid: this.members[memberIndex].getUuid()});
+
+    }
+
     listenDisconnect(client) {
         console.log('disconnect', client.id);
         console.log(this.members.map(_elt => _elt.getSocket().id))
@@ -75,7 +98,7 @@ class Tchat {
         return this.members.findIndex(_m => _m.getSocket().id === socket.id) !== -1;
     }
 
-    isMemberBySocketByPseudo(name) {
+    isMemberByPseudo(name) {
         console.log(name, this.members.map(_elt => _elt.getName()));
         return this.members.findIndex(_m => _m.getName() === name) !== -1;
     }
@@ -93,6 +116,7 @@ class Tchat {
     findMemberByName(memberName) {
         return this.members.find(_m => _m.getName() === memberName);
     }
+
 
     removeMember(socket) {
         const index = this.members.findIndex(_m => _m.getSocket().id === socket.id);
