@@ -105,6 +105,9 @@ class Tchat {
 
     listenMessage(client, message) {
         console.log(message);
+        if (this.messages.length > 500) {
+            this.messages.shift();
+        }
         this.messages.push(new Message(this.findMemberByName(message.member),message.msg, message.uuid));
         this.sendAll('newMessage',message, client);
     }
